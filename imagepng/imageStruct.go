@@ -8,15 +8,31 @@ type IHCD struct {
 }
 
 type IHCDdata struct {
-	widthImg          string
-	heightImg         string
-	bitDepth          string
-	colortype         string
+	widthImg          int64
+	heightImg         int64
+	bitDepth          int64
+	colortype         int64
 	compressionMethod string
 	filterMethod      string
 	interlaceMethod   string
 }
 
+type IDAT struct {
+	dimention int64
+	chunktype string
+	chunkData []byte
+	crc       string
+}
+
+type IEND struct {
+	dimention int64
+	chunktype string
+	chunkData []byte
+	crc       string
+}
+
 type PngImage struct {
-	IHDRchunk IHCD
+	IHDRchunk  IHCD
+	IDATchunks []IDAT
+	IENDchunk  IEND
 }

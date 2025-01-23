@@ -11,3 +11,8 @@ func Assert(cond bool, text string, err error) {
 		os.Exit(1)
 	}
 }
+
+func AssertUnexpected(text string) {
+	fmt.Println("UNEXPECTED - ", text)
+	os.Exit(1)
+}
