@@ -2,7 +2,10 @@ package imagepng
 
 import (
 	// "encodinry"
+	"bytes"
+	"compress/zlib"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
@@ -60,9 +63,10 @@ func Image(filePath string) PngImage {
 
 	dim := 33
 	dimensionIDAT := dimensionIDAT(bite, dim)
-	newImage.IDATchunks, newImage.IENDchunk = IDATake(bite, dim, dimensionIDAT)
+	newImage.IDATchunks, newImage.IENDchunk, newImage.idatDecoded = IDATake(bite, dim, dimensionIDAT)
 
 	fmt.Println(newImage.IHDRchunk)
+	fmt.Println(newImage.idatDecoded)
 	fmt.Println(newImage.IENDchunk)
 
 	return newImage
@@ -119,11 +123,37 @@ func dimensionIDAT(bite []byte, dim int) int {
 	return dimensionIdat
 }
 
-func IDATake(bite []byte, dim, dimensionIdat int) ([]IDAT, IEND) {
+func decodeIDAT(idatChunk []byte) ([]byte, error) {
+	r, err := zlib.NewReader(bytes.NewReader(idatChunk))
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	var decoded []byte
+	var buf = make([]byte, 1024)
+
+	for {
+		n, err := r.Read(buf)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		decoded = append(decoded, buf[:n]...)
+	}
+
+	return decoded, nil
+}
+
+func IDATake(bite []byte, dim, dimensionIdat int) ([]IDAT, IEND, []byte) {
 	var lenght int64
 	var chunkType string
 	var crc string
 	var idatChunks = make([]IDAT, dimensionIdat)
+	var allData []byte
 	var iend IEND
 	i := 0
 
@@ -134,6 +164,8 @@ func IDATake(bite []byte, dim, dimensionIdat int) ([]IDAT, IEND) {
 		crc = fmt.Sprintf("%x", bite[dim+8+int(lenght):dim+12+int(lenght)])
 
 		if chunkType == "IDAT" {
+
+			allData = append(allData, data...)
 			idatChunks[i].dimention = lenght
 			idatChunks[i].chunktype = chunkType
 			idatChunks[i].chunkData = data
@@ -146,7 +178,10 @@ func IDATake(bite []byte, dim, dimensionIdat int) ([]IDAT, IEND) {
 			iend.chunkData = data
 			iend.crc = crc
 
-			return idatChunks, iend
+			decodedImage, err := decodeIDAT(allData)
+			asserterror.Assert(err != nil, "error in the decode of the idat", err)
+
+			return idatChunks, iend, decodedImage
 		}
 
 		dim += int(lenght) + 4 + 8

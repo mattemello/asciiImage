@@ -32,7 +32,13 @@ type IEND struct {
 }
 
 type PngImage struct {
-	IHDRchunk  IHCD
-	IDATchunks []IDAT
-	IENDchunk  IEND
+	IHDRchunk    IHCD
+	IDATchunks   []IDAT
+	IENDchunk    IEND
+	idatDecoded  []byte
+	positionIdat int
+}
+
+func (png *PngImage) takeContent() {
+
 }
