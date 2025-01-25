@@ -18,5 +18,7 @@ func main() {
 		//TODO: controll of the args
 	}
 
-	imagepng.Image(args[len(args)-1])
+	try := imagepng.Image(args[len(args)-1])
+
+	try.TryConvert()
 }

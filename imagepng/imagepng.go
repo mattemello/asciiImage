@@ -61,16 +61,27 @@ func Image(filePath string) PngImage {
 	newImage.IHDRchunk.chunkData.interlaceMethod = interlaceMethod
 	newImage.IHDRchunk.crc = fmt.Sprintf("%x", bite[28:32])
 
+	plteIsIn := 3
 	dim := 33
+
+	if plteIsIn == int(newImage.IHDRchunk.chunkData.colortype) {
+		// controllPLTE(bite, dim)
+	}
+
 	dimensionIDAT := dimensionIDAT(bite, dim)
 	newImage.IDATchunks, newImage.IENDchunk, newImage.idatDecoded = IDATake(bite, dim, dimensionIDAT)
 
-	fmt.Println(newImage.IHDRchunk)
-	fmt.Println(newImage.idatDecoded)
-	fmt.Println(newImage.IENDchunk)
-
 	return newImage
+}
 
+func controllPLTE(bite []byte, i int) {
+	lenght, _ := strconv.ParseInt(fmt.Sprintf("%x", bite[i:i+4]), 16, 64)
+	chunkType := string(bite[i+4 : i+8])
+	data := bite[i+8 : i+8+int(lenght)]
+	crc := fmt.Sprintf("%x", bite[i+8+int(lenght):i+12+int(lenght)])
+
+	fmt.Println(lenght, chunkType, crc)
+	fmt.Println(data)
 }
 
 func controllDepthandColor(bitDepth, colorType int64) (int64, int64) {
@@ -79,22 +90,34 @@ func controllDepthandColor(bitDepth, colorType int64) (int64, int64) {
 	case 0:
 		if bitDepth != 1 && bitDepth != 2 && bitDepth != 4 && bitDepth != 8 && bitDepth != 16 {
 			asserterror.AssertUnexpected("error in the bitDepth and colorType value")
+		} else {
+			fmt.Println("gray scale sample")
 		}
 	case 2:
 		if bitDepth != 8 && bitDepth != 16 {
 			asserterror.AssertUnexpected("error in the bitDepth and colorType value")
+		} else {
+			fmt.Println("each pixel is an RGB")
 		}
 	case 3:
 		if bitDepth != 1 && bitDepth != 2 && bitDepth != 4 && bitDepth != 8 {
 			asserterror.AssertUnexpected("error in the bitDepth and colorType value")
+		} else {
+			// bitDepth alwais 8
+			bitDepth = 8
+			fmt.Println("each pixel is palete index; PLTE need check")
 		}
 	case 4:
 		if bitDepth != 8 && bitDepth != 16 {
 			asserterror.AssertUnexpected("error in the bitDepth and colorType value")
+		} else {
+			fmt.Println("gray scale and alpha")
 		}
 	case 6:
 		if bitDepth != 8 && bitDepth != 16 {
 			asserterror.AssertUnexpected("error in the bitDepth and colorType value")
+		} else {
+			fmt.Println("RGB and alpha")
 		}
 	}
 
@@ -109,12 +132,13 @@ func dimensionIDAT(bite []byte, dim int) int {
 	for {
 		lenght, _ = strconv.ParseInt(fmt.Sprintf("%x", bite[dim:dim+4]), 16, 64)
 		chunkType = string(bite[dim+4 : dim+8])
+		data := bite[dim+8 : dim+8+int(lenght)]
 		if chunkType == "IDAT" {
 			dimensionIdat++
 		} else if chunkType == "IEND" {
 			break
 		} else {
-			asserterror.AssertUnexpected("new type in the bit")
+			fmt.Println(chunkType, data)
 		}
 
 		dim += int(lenght) + 4 + 8
@@ -136,6 +160,7 @@ func decodeIDAT(idatChunk []byte) ([]byte, error) {
 	for {
 		n, err := r.Read(buf)
 		if err == io.EOF {
+			decoded = append(decoded, buf[:n]...)
 			break
 		}
 		if err != nil {
