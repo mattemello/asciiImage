@@ -1,6 +1,11 @@
 package imagepng
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+
+	asserterror "github.com/mattemello/asciiImage/assertError"
+)
 
 type IHCD struct {
 	dimention string
@@ -58,9 +63,29 @@ func (png *PngImage) TryConvert() {
 
 	fmt.Println(i, png.IHDRchunk.chunkData.widthImg*png.IHDRchunk.chunkData.heightImg*3)
 
-	// for _, rgb := range data {
-	// 	fmt.Printf("%d", ((int(rgb[0]) * 65536) + (int(rgb[1]) * 256) + int(rgb[2])))
-	// }
+	var j = 0
+
+	f, err := os.Create("./imageAsci.txt")
+	asserterror.Assert(err != nil, "Can not create the txt file", err)
+	defer f.Close()
+
+	for _, rgb := range data {
+		if len(rgb) != 3 {
+			break
+		}
+
+		if int(png.IHDRchunk.chunkData.widthImg) == j {
+			fmt.Fprintln(f)
+			j = -1
+		}
+
+		if ((int(rgb[0]) * 65536) + (int(rgb[1]) * 256) + int(rgb[2])) == 0 {
+			fmt.Fprintf(f, ".")
+		} else {
+			fmt.Fprintf(f, "&")
+		}
+		j++
+	}
 
 	fmt.Println()
 }

@@ -139,6 +139,7 @@ func dimensionIDAT(bite []byte, dim int) int {
 			break
 		} else {
 			fmt.Println(chunkType, data)
+
 		}
 
 		dim += int(lenght) + 4 + 8
@@ -197,7 +198,7 @@ func IDATake(bite []byte, dim, dimensionIdat int) ([]IDAT, IEND, []byte) {
 			idatChunks[i].crc = crc
 
 			i++
-		} else {
+		} else if chunkType == "IEND" {
 			iend.dimention = lenght
 			iend.chunktype = chunkType
 			iend.chunkData = data
@@ -207,6 +208,8 @@ func IDATake(bite []byte, dim, dimensionIdat int) ([]IDAT, IEND, []byte) {
 			asserterror.Assert(err != nil, "error in the decode of the idat", err)
 
 			return idatChunks, iend, decodedImage
+		} else {
+
 		}
 
 		dim += int(lenght) + 4 + 8
