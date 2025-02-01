@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"image/png"
 	"os"
 
 	"github.com/mattemello/asciiImage/assertError"
@@ -23,6 +24,6 @@ func main() {
 	_, err = try.TakePixet()
 	asserterror.Assert(err != nil, "Can't take the pixel", err)
 
-	// fmt.Println(data)
+	png
 
 }

@@ -10,6 +10,8 @@ import (
 	"strconv"
 )
 
+var plteIn = false
+
 func Image(filePath string) (PngImage, error) {
 	fileImage, err := os.Open(filePath)
 	if err != nil {
@@ -41,15 +43,15 @@ func Image(filePath string) (PngImage, error) {
 		return PngImage{}, errors.New("NOT A IHDR AT FIRST - in the first position chunck there isn't the IHDR")
 	}
 
-	newImage.IHDRchunk.dimention = lenght
-	newImage.IHDRchunk.chunktype = chunkType
+	newImage.chunkIHDR.dimention = lenght
+	newImage.chunkIHDR.chunktype = chunkType
 
-	newImage.IHDRchunk.chunkData.widthImg, err = strconv.ParseInt(fmt.Sprintf("%x", bite[16:20]), 16, 64)
+	newImage.chunkIHDR.chunkData.widthImg, err = strconv.ParseInt(fmt.Sprintf("%x", bite[16:20]), 16, 64)
 	if err != nil {
 		return PngImage{}, err
 	}
 
-	newImage.IHDRchunk.chunkData.heightImg, err = strconv.ParseInt(fmt.Sprintf("%x", bite[20:24]), 16, 64)
+	newImage.chunkIHDR.chunkData.heightImg, err = strconv.ParseInt(fmt.Sprintf("%x", bite[20:24]), 16, 64)
 	if err != nil {
 		return PngImage{}, err
 	}
@@ -62,29 +64,33 @@ func Image(filePath string) (PngImage, error) {
 		return PngImage{}, err
 	}
 
-	newImage.IHDRchunk.chunkData.bitDepth = bitDepth
-	newImage.IHDRchunk.chunkData.colortype = colortype
+	newImage.chunkIHDR.chunkData.bitDepth = bitDepth
+	newImage.chunkIHDR.chunkData.colortype = colortype
 
 	compressionMethod := fmt.Sprintf("%x", bite[26])
 	filterMethod := fmt.Sprintf("%x", bite[27])
 	interlaceMethod := fmt.Sprintf("%x", bite[28])
-	newImage.IHDRchunk.chunkData.compressionMethod = compressionMethod
-	newImage.IHDRchunk.chunkData.filterMethod = filterMethod
-	newImage.IHDRchunk.chunkData.interlaceMethod = interlaceMethod
-	newImage.IHDRchunk.crc = fmt.Sprintf("%x", bite[28:32])
 
-	plteIsIn := 3
+	fmt.Println(filterMethod)
+
+	newImage.chunkIHDR.chunkData.compressionMethod = compressionMethod
+	newImage.chunkIHDR.chunkData.filterMethod = filterMethod
+	newImage.chunkIHDR.chunkData.interlaceMethod = interlaceMethod
+	newImage.chunkIHDR.crc = fmt.Sprintf("%x", bite[28:32])
+
 	dim := 33
 
-	if plteIsIn == int(newImage.IHDRchunk.chunkData.colortype) {
-		// controllPLTE(bite, dim)
-	}
-
 	dimensionIDAT := dimensionIDAT(bite, dim)
-	newImage.IDATchunks, newImage.IENDchunk, newImage.idatDecoded, err = IDATake(bite, dim, dimensionIDAT)
+	newImage.chunksIDAT, newImage.chunkIEND, newImage.idatDecoded, err = IDATake(bite, dim, dimensionIDAT)
 	if err != nil {
 		return PngImage{}, err
 	}
+
+	if plteIn {
+		controllPLTE(bite, dim)
+	}
+
+	fmt.Println(newImage.idatDecoded)
 
 	newImage.positionIdat = 0
 
@@ -92,50 +98,69 @@ func Image(filePath string) (PngImage, error) {
 }
 
 func controllPLTE(bite []byte, i int) {
-	lenght, _ := strconv.ParseInt(fmt.Sprintf("%x", bite[i:i+4]), 16, 64)
-	chunkType := string(bite[i+4 : i+8])
-	data := bite[i+8 : i+8+int(lenght)]
-	crc := fmt.Sprintf("%x", bite[i+8+int(lenght):i+12+int(lenght)])
+	var lenght int64
+	var chunkType string
+	// var data []byte
+	// var crc string
 
-	fmt.Println(lenght, chunkType, crc)
-	fmt.Println(data)
+	for {
+		lenght, _ = strconv.ParseInt(fmt.Sprintf("%x", bite[i:i+4]), 16, 64)
+		chunkType = string(bite[i+4 : i+8])
+		_ = bite[i+8 : i+8+int(lenght)]
+		_ = fmt.Sprintf("%x", bite[i+8+int(lenght):i+12+int(lenght)])
+
+		if chunkType == "PLTE" {
+			fmt.Println("enter")
+			break
+		}
+
+		i += int(lenght) + 4 + 8
+	}
+
+	if (lenght % 3) != 0 {
+		// to return error
+	}
+
 }
 
 func controllDepthandColor(bitDepth, colorType int64) (int64, error) {
 	switch colorType {
 
-	case 0:
-		if bitDepth != 1 && bitDepth != 2 && bitDepth != 4 && bitDepth != 8 && bitDepth != 16 {
-			return 0, errors.New("Invalid colore and depth bit. Color: " + string(colorType) + " Depth" + string(bitDepth))
+	case bColorGray:
+		if bitDepth != bDepthOne && bitDepth != bDepthTwo && bitDepth != bDepthFour && bitDepth != bDepthEight && bitDepth != bDepthSixteen {
+			return 0, errors.New(fmt.Sprintf("Invalid colore and depth bit. Color: %d  Depth: %d", colorType, bitDepth))
 		} else {
 			fmt.Println("gray scale sample")
 		}
-	case 2:
-		if bitDepth != 8 && bitDepth != 16 {
-			return 0, errors.New("Invalid colore and depth bit. Color: " + string(colorType) + " Depth" + string(bitDepth))
+	case bColorRGB:
+		if bitDepth != bDepthEight && bitDepth != bDepthSixteen {
+			return 0, errors.New(fmt.Sprintf("Invalid colore and depth bit. Color: %d  Depth: %d", colorType, bitDepth))
 		} else {
 			fmt.Println("each pixel is an RGB")
 		}
-	case 3:
-		if bitDepth != 1 && bitDepth != 2 && bitDepth != 4 && bitDepth != 8 {
-			return 0, errors.New("Invalid colore and depth bit. Color: " + string(colorType) + " Depth" + string(bitDepth))
+	case bColorPLET:
+		if bitDepth != bDepthOne && bitDepth != bDepthTwo && bitDepth != bDepthFour && bitDepth != bDepthEight {
+			return 0, errors.New(fmt.Sprintf("Invalid colore and depth bit. Color: %d  Depth: %d", colorType, bitDepth))
 		} else {
 			// bitDepth alwais 8
-			bitDepth = 8
+			bitDepth = bDepthEight
 			fmt.Println("each pixel is palete index; PLTE need check")
 		}
-	case 4:
-		if bitDepth != 8 && bitDepth != 16 {
-			return 0, errors.New("Invalid colore and depth bit. Color: " + string(colorType) + " Depth" + string(bitDepth))
+	case bColorGrayAlpha:
+		if bitDepth != bDepthEight && bitDepth != bDepthSixteen {
+			return 0, errors.New(fmt.Sprintf("Invalid colore and depth bit. Color: %d  Depth: %d", colorType, bitDepth))
 		} else {
 			fmt.Println("gray scale and alpha")
 		}
-	case 6:
-		if bitDepth != 8 && bitDepth != 16 {
-			return 0, errors.New("Invalid colore and depth bit. Color: " + string(colorType) + " Depth" + string(bitDepth))
+	case bColorRGBAlpha:
+		if bitDepth != bDepthEight && bitDepth != bDepthSixteen {
+			return 0, errors.New(fmt.Sprintf("Invalid colore and depth bit. Color: %d  Depth: %d", colorType, bitDepth))
 		} else {
 			fmt.Println("RGB and alpha")
 		}
+
+	default:
+		return 0, errors.New(fmt.Sprintf("Invalid color type -> Color: %d", colorType))
 	}
 
 	return bitDepth, nil
@@ -156,6 +181,9 @@ func dimensionIDAT(bite []byte, dim int) int {
 			break
 		} else {
 			fmt.Println(chunkType, data)
+			if chunkType == "PLTE" {
+				plteIn = true
+			}
 
 		}
 
@@ -227,8 +255,6 @@ func IDATake(bite []byte, dim, dimensionIdat int) ([]IDAT, IEND, []byte, error) 
 			}
 
 			return idatChunks, iend, decodedImage, nil
-		} else {
-
 		}
 
 		dim += int(lenght) + 4 + 8

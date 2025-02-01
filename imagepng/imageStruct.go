@@ -37,34 +37,59 @@ type IEND struct {
 }
 
 type PngImage struct {
-	IHDRchunk    IHCD
-	IDATchunks   []IDAT
-	IENDchunk    IEND
+	chunkIHDR    IHCD
+	chunksIDAT   []IDAT
+	chunkIEND    IEND
 	idatDecoded  []byte
 	positionIdat int
 }
 
+const (
+	bDepthInvalid = 0
+	bDepthOne     = 1
+	bDepthTwo     = 2
+	bDepthFour    = 4
+	bDepthEight   = 8
+	bDepthSixteen = 16
+)
+
+const (
+	bColorGray      = 0
+	bColorRGB       = 2
+	bColorPLET      = 3
+	bColorGrayAlpha = 4
+	bColorRGBAlpha  = 6
+)
+
 func (png *PngImage) Width() int {
-	return int(png.IHDRchunk.chunkData.widthImg)
+	return int(png.chunkIHDR.chunkData.widthImg)
 }
 
 func (png *PngImage) TakePixet() ([][]byte, error) {
 
-	switch png.IHDRchunk.chunkData.colortype {
+	fmt.Println(png.Width())
 
-	case 2:
-		var data [][]byte
-		data = make([][]byte, len(png.idatDecoded)/3+1)
+	switch png.chunkIHDR.chunkData.colortype {
+	case bColorGray:
+		break
 
-		for i := 0; i < len(png.idatDecoded); i += 3 {
-			data[i/3] = png.idatDecoded[i : i+3]
-		}
-
-		fmt.Println(data)
-		return data, nil
+	case bColorRGB:
+		return rgbSample(png.idatDecoded, int(png.chunkIHDR.chunkData.bitDepth)), nil
 
 	}
 
 	return nil, errors.New("Can't take the pixel, color image not implemanted!")
 
+}
+
+func rgbSample(png []byte, depth int) [][]byte {
+
+	var data [][]byte
+	data = make([][]byte, len(png)/3+1)
+
+	for i := 0; i < len(png); i += 3 {
+		data[i/3] = png[i : i+3]
+	}
+
+	return data
 }
