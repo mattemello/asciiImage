@@ -1,10 +1,8 @@
 package imagepng
 
 import (
+	"errors"
 	"fmt"
-	"os"
-
-	asserterror "github.com/mattemello/asciiImage/assertError"
 )
 
 type IHCD struct {
@@ -46,46 +44,27 @@ type PngImage struct {
 	positionIdat int
 }
 
-func (png *PngImage) TryConvert() {
-	if png.IHDRchunk.chunkData.colortype != 2 {
-		return
-	}
+func (png *PngImage) Width() int {
+	return int(png.IHDRchunk.chunkData.widthImg)
+}
 
-	var data [][]byte
-	data = make([][]byte, len(png.idatDecoded))
+func (png *PngImage) TakePixet() ([][]byte, error) {
 
-	var i int
+	switch png.IHDRchunk.chunkData.colortype {
 
-	for i = 0; i < len(png.idatDecoded); i += 3 {
+	case 2:
+		var data [][]byte
+		data = make([][]byte, len(png.idatDecoded)/3+1)
 
-		data[i/3] = png.idatDecoded[i : i+3]
-	}
-
-	fmt.Println(i, png.IHDRchunk.chunkData.widthImg*png.IHDRchunk.chunkData.heightImg*3)
-
-	var j = 0
-
-	f, err := os.Create("./imageAsci.txt")
-	asserterror.Assert(err != nil, "Can not create the txt file", err)
-	defer f.Close()
-
-	for _, rgb := range data {
-		if len(rgb) != 3 {
-			break
+		for i := 0; i < len(png.idatDecoded); i += 3 {
+			data[i/3] = png.idatDecoded[i : i+3]
 		}
 
-		if int(png.IHDRchunk.chunkData.widthImg) == j {
-			fmt.Fprintln(f)
-			j = -1
-		}
+		fmt.Println(data)
+		return data, nil
 
-		if ((int(rgb[0]) * 65536) + (int(rgb[1]) * 256) + int(rgb[2])) == 0 {
-			fmt.Fprintf(f, ".")
-		} else {
-			fmt.Fprintf(f, "&")
-		}
-		j++
 	}
 
-	fmt.Println()
+	return nil, errors.New("Can't take the pixel, color image not implemanted!")
+
 }

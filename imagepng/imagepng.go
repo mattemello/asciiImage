@@ -1,24 +1,26 @@
 package imagepng
 
 import (
-	// "encodinry"
 	"bytes"
 	"compress/zlib"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
-
-	asserterror "github.com/mattemello/asciiImage/assertError"
 )
 
-func Image(filePath string) PngImage {
+func Image(filePath string) (PngImage, error) {
 	fileImage, err := os.Open(filePath)
-	asserterror.Assert(err != nil, "Can't open the file!!", err)
+	if err != nil {
+		return PngImage{}, err
+	}
 	defer fileImage.Close()
 
 	state, err := fileImage.Stat()
-	asserterror.Assert(err != nil, "Can't take the stat of the file", err)
+	if err != nil {
+		return PngImage{}, err
+	}
 
 	var bite = make([]byte, state.Size())
 
@@ -27,7 +29,7 @@ func Image(filePath string) PngImage {
 	pngfile := fmt.Sprintf("%x", bite[:8])
 
 	if pngfile != "89504e470d0a1a0a" {
-		asserterror.AssertUnexpected("FILE NOT A PNG - the file provided is not a png file")
+		return PngImage{}, errors.New("Invalid type of the file, it's not a png file")
 	}
 
 	var newImage PngImage
@@ -36,22 +38,32 @@ func Image(filePath string) PngImage {
 	chunkType := string(bite[12:16])
 
 	if chunkType != "IHDR" {
-		asserterror.AssertUnexpected("NOT A IHDR AT FIRST - in the first position chunck there isn't the IHDR")
+		return PngImage{}, errors.New("NOT A IHDR AT FIRST - in the first position chunck there isn't the IHDR")
 	}
 
 	newImage.IHDRchunk.dimention = lenght
 	newImage.IHDRchunk.chunktype = chunkType
 
 	newImage.IHDRchunk.chunkData.widthImg, err = strconv.ParseInt(fmt.Sprintf("%x", bite[16:20]), 16, 64)
-	asserterror.Assert(err != nil, "can't take the width of the image", err)
+	if err != nil {
+		return PngImage{}, err
+	}
 
 	newImage.IHDRchunk.chunkData.heightImg, err = strconv.ParseInt(fmt.Sprintf("%x", bite[20:24]), 16, 64)
-	asserterror.Assert(err != nil, "can't take the height of the image", err)
+	if err != nil {
+		return PngImage{}, err
+	}
 
 	bitDepth, _ := strconv.ParseInt(fmt.Sprintf("%x", bite[24]), 16, 64)
 	colortype, _ := strconv.ParseInt(fmt.Sprintf("%x", bite[25]), 16, 64)
 
-	newImage.IHDRchunk.chunkData.bitDepth, newImage.IHDRchunk.chunkData.colortype = controllDepthandColor(bitDepth, colortype)
+	bitDepth, err = controllDepthandColor(bitDepth, colortype)
+	if err != nil {
+		return PngImage{}, err
+	}
+
+	newImage.IHDRchunk.chunkData.bitDepth = bitDepth
+	newImage.IHDRchunk.chunkData.colortype = colortype
 
 	compressionMethod := fmt.Sprintf("%x", bite[26])
 	filterMethod := fmt.Sprintf("%x", bite[27])
@@ -69,9 +81,14 @@ func Image(filePath string) PngImage {
 	}
 
 	dimensionIDAT := dimensionIDAT(bite, dim)
-	newImage.IDATchunks, newImage.IENDchunk, newImage.idatDecoded = IDATake(bite, dim, dimensionIDAT)
+	newImage.IDATchunks, newImage.IENDchunk, newImage.idatDecoded, err = IDATake(bite, dim, dimensionIDAT)
+	if err != nil {
+		return PngImage{}, err
+	}
 
-	return newImage
+	newImage.positionIdat = 0
+
+	return newImage, nil
 }
 
 func controllPLTE(bite []byte, i int) {
@@ -84,24 +101,24 @@ func controllPLTE(bite []byte, i int) {
 	fmt.Println(data)
 }
 
-func controllDepthandColor(bitDepth, colorType int64) (int64, int64) {
+func controllDepthandColor(bitDepth, colorType int64) (int64, error) {
 	switch colorType {
 
 	case 0:
 		if bitDepth != 1 && bitDepth != 2 && bitDepth != 4 && bitDepth != 8 && bitDepth != 16 {
-			asserterror.AssertUnexpected("error in the bitDepth and colorType value")
+			return 0, errors.New("Invalid colore and depth bit. Color: " + string(colorType) + " Depth" + string(bitDepth))
 		} else {
 			fmt.Println("gray scale sample")
 		}
 	case 2:
 		if bitDepth != 8 && bitDepth != 16 {
-			asserterror.AssertUnexpected("error in the bitDepth and colorType value")
+			return 0, errors.New("Invalid colore and depth bit. Color: " + string(colorType) + " Depth" + string(bitDepth))
 		} else {
 			fmt.Println("each pixel is an RGB")
 		}
 	case 3:
 		if bitDepth != 1 && bitDepth != 2 && bitDepth != 4 && bitDepth != 8 {
-			asserterror.AssertUnexpected("error in the bitDepth and colorType value")
+			return 0, errors.New("Invalid colore and depth bit. Color: " + string(colorType) + " Depth" + string(bitDepth))
 		} else {
 			// bitDepth alwais 8
 			bitDepth = 8
@@ -109,19 +126,19 @@ func controllDepthandColor(bitDepth, colorType int64) (int64, int64) {
 		}
 	case 4:
 		if bitDepth != 8 && bitDepth != 16 {
-			asserterror.AssertUnexpected("error in the bitDepth and colorType value")
+			return 0, errors.New("Invalid colore and depth bit. Color: " + string(colorType) + " Depth" + string(bitDepth))
 		} else {
 			fmt.Println("gray scale and alpha")
 		}
 	case 6:
 		if bitDepth != 8 && bitDepth != 16 {
-			asserterror.AssertUnexpected("error in the bitDepth and colorType value")
+			return 0, errors.New("Invalid colore and depth bit. Color: " + string(colorType) + " Depth" + string(bitDepth))
 		} else {
 			fmt.Println("RGB and alpha")
 		}
 	}
 
-	return bitDepth, colorType
+	return bitDepth, nil
 
 }
 
@@ -174,7 +191,7 @@ func decodeIDAT(idatChunk []byte) ([]byte, error) {
 	return decoded, nil
 }
 
-func IDATake(bite []byte, dim, dimensionIdat int) ([]IDAT, IEND, []byte) {
+func IDATake(bite []byte, dim, dimensionIdat int) ([]IDAT, IEND, []byte, error) {
 	var lenght int64
 	var chunkType string
 	var crc string
@@ -205,9 +222,11 @@ func IDATake(bite []byte, dim, dimensionIdat int) ([]IDAT, IEND, []byte) {
 			iend.crc = crc
 
 			decodedImage, err := decodeIDAT(allData)
-			asserterror.Assert(err != nil, "error in the decode of the idat", err)
+			if err != nil {
+				return nil, IEND{}, nil, err
+			}
 
-			return idatChunks, iend, decodedImage
+			return idatChunks, iend, decodedImage, nil
 		} else {
 
 		}
