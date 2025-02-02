@@ -87,39 +87,40 @@ func Image(filePath string) (PngImage, error) {
 	}
 
 	if plteIn {
-		controllPLTE(bite, dim)
+		newImage.chunkPLTE, err = controllPLTE(bite, dim)
+		if err != nil {
+			return PngImage{}, err
+		}
 	}
-
-	fmt.Println(newImage.idatDecoded)
 
 	newImage.positionIdat = 0
 
 	return newImage, nil
 }
 
-func controllPLTE(bite []byte, i int) {
-	var lenght int64
-	var chunkType string
-	// var data []byte
-	// var crc string
+func controllPLTE(bite []byte, i int) (PLTE, error) {
+	var plte PLTE
 
 	for {
-		lenght, _ = strconv.ParseInt(fmt.Sprintf("%x", bite[i:i+4]), 16, 64)
-		chunkType = string(bite[i+4 : i+8])
-		_ = bite[i+8 : i+8+int(lenght)]
-		_ = fmt.Sprintf("%x", bite[i+8+int(lenght):i+12+int(lenght)])
+		plte.dimention, _ = strconv.ParseInt(fmt.Sprintf("%x", bite[i:i+4]), 16, 64)
+		plte.chunktype = string(bite[i+4 : i+8])
+		plte.chunkData = bite[i+8 : i+8+int(plte.dimention)]
+		plte.crc = fmt.Sprintf("%x", bite[i+8+int(plte.dimention):i+12+int(plte.dimention)])
 
-		if chunkType == "PLTE" {
+		if plte.chunktype == "PLTE" {
 			fmt.Println("enter")
 			break
 		}
 
-		i += int(lenght) + 4 + 8
+		i += int(plte.dimention) + 4 + 8
 	}
 
-	if (lenght % 3) != 0 {
-		// to return error
+	if (plte.dimention % 3) != 0 {
+		return PLTE{}, errors.New("The PLTE chunk is not good")
+
 	}
+
+	return plte, nil
 
 }
 
