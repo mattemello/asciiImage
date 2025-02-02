@@ -24,6 +24,23 @@ func main() {
 	data, err := try.TakePixet()
 	asserterror.Assert(err != nil, "Can't take the pixel", err)
 
-	fmt.Println(data)
+	if data == nil {
+
+	}
+
+	file, err := os.Create("./imageAsci.txt")
+	asserterror.Assert(err != nil, "can't create the file", err)
+
+	for _, i := range data {
+		for _, j := range i {
+			if j == 0 {
+				fmt.Fprintf(file, ".")
+			} else {
+				fmt.Fprintf(file, "&")
+			}
+		}
+		fmt.Fprintln(file)
+
+	}
 
 }

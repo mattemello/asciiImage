@@ -95,7 +95,7 @@ func (png *PngImage) TakePixet() ([][]byte, error) {
 }
 
 func graySample(png []byte, depth, height, width int) [][]byte {
-	var image = make([][]byte, height)
+	var image = make([][]byte, len(png))
 
 	switch depth {
 	case bDepthOne:
